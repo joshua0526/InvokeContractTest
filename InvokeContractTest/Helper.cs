@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
+using System.Numerics;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -86,74 +87,6 @@ namespace InvokeContractTest
             return _dir;
         }
 
-        public static ThinNeo.Transaction makeTran(List<Utxo> utxos, string targetaddr, ThinNeo.Hash256 assetid, decimal sendcount)
-        {
-            var tran = new ThinNeo.Transaction();
-            tran.type = ThinNeo.TransactionType.ContractTransaction;
-            tran.version = 0;
-            tran.extdata = null;
-
-            tran.attributes = new ThinNeo.Attribute[0];
-            var scraddr = "";
-            utxos.Sort((a, b) => {
-                if (a.value > b.value)
-                {
-                    return 1;
-                }
-                else if (a.value < b.value)
-                {
-                    return -1;
-                }
-                else
-                {
-                    return 0;
-                }
-            });
-            decimal count = decimal.Zero;
-            List<ThinNeo.TransactionInput> list_inputs = new List<ThinNeo.TransactionInput>();
-            for (var i = 0; i < utxos.Count; i++)
-            {
-                ThinNeo.TransactionInput input = new ThinNeo.TransactionInput();
-                input.hash = utxos[i].txid;
-                input.index = (ushort)utxos[i].n;
-                list_inputs.Add(input);
-                count += utxos[i].value;
-                scraddr = utxos[i].addr;
-                if (count >= sendcount)
-                {
-                    break;
-                }
-            }
-            tran.inputs = list_inputs.ToArray();
-            if (count >= sendcount)
-            {
-                List<ThinNeo.TransactionOutput> list_outputs = new List<ThinNeo.TransactionOutput>();
-                if (sendcount > decimal.Zero && targetaddr != null)
-                {
-                    ThinNeo.TransactionOutput output = new ThinNeo.TransactionOutput();
-                    output.assetId = assetid;
-                    output.value = sendcount;
-                    output.toAddress = ThinNeo.Helper.GetPublicKeyHashFromAddress(targetaddr);
-                    list_outputs.Add(output);
-                }
-                var change = count - sendcount;
-                if (change > decimal.Zero)
-                {
-                    ThinNeo.TransactionOutput outputchange = new ThinNeo.TransactionOutput();
-                    outputchange.toAddress = ThinNeo.Helper.GetPublicKeyHashFromAddress(scraddr);
-                    outputchange.value = change;
-                    outputchange.assetId = assetid;
-                    list_outputs.Add(outputchange);
-                }
-                tran.outputs = list_outputs.ToArray();
-            }
-            else
-            {
-                throw new Exception("no enough money.");
-            }
-            return tran;
-        }
-
         public static async Task<string> HttpGet(string url)
         {
             WebClient wc = new WebClient();
@@ -168,22 +101,62 @@ namespace InvokeContractTest
             return System.Text.Encoding.UTF8.GetString(retdata);
         }
 
-
-        public void a()
+        public static string GetJsonString(MyJson.JsonNode_Object item)
         {
-            int n = 10;
-            int sum = 0;
-            for (var i = 0; i <= n; i++)
+            var type = item["type"].ToString();
+            var value = item["value"];
+            if (type == "ByteArray")
             {
-                sum += s(i);
+                var bt = ThinNeo.Debug.DebugTool.HexString2Bytes(value.AsString());
+                string str = System.Text.Encoding.ASCII.GetString(bt);
+                return str;
+
             }
+            return "";
         }
 
-        public int s(int i)
+        public static string GetJsonBigInteger(MyJson.JsonNode_Object item)
         {
-            int k = 2;
-            return k;
+            var type = item["type"].ToString();
+            var value = item["value"];
+            if (type == "ByteArray")
+            {
+                var bt = ThinNeo.Debug.DebugTool.HexString2Bytes(value.AsString());
+                var num = new BigInteger(bt);
+                return num.ToString();
+
+            }
+            return "";
         }
 
+        public static string GetJsonInteger(MyJson.JsonNode_Object item)
+        {
+            var type = item["type"].ToString();
+            var value = item["value"];
+            if (type == "Integer")
+            {
+                return value.ToString();
+
+            }
+            return "";
+        }
+
+        public static ThinNeo.Transaction makeTran(Dictionary<string, List<Utxo>> dir_utxos, string targetaddr, ThinNeo.Hash256 assetid, decimal sendcount)
+        {
+            var tran = new ThinNeo.Transaction();
+            tran.type = ThinNeo.TransactionType.ContractTransaction;
+            tran.version = 0;
+            tran.extdata = null;
+
+            tran.attributes = new ThinNeo.Attribute[0];
+            var scraddr = "";
+            decimal count = decimal.Zero;
+            List<ThinNeo.TransactionInput> list_inputs = new List<ThinNeo.TransactionInput>();
+            tran.inputs = list_inputs.ToArray();
+            List<ThinNeo.TransactionOutput> list_outputs = new List<ThinNeo.TransactionOutput>();
+            tran.outputs = list_outputs.ToArray();
+
+            return tran;
+        }
     }
 }
